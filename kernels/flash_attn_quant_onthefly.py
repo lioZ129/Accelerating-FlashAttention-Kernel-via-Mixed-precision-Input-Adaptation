@@ -60,10 +60,10 @@ def _flash_attention_quantized_forward_with_on_the_fly_dequantization(
     BITS: tl.constexpr,
 ):
     """
-    中文说明：
-    - 在前向内核内按行即时反量化 K/V：BITS=8 直接 int8×scale；BITS=4 拆 nibble 后符号扩展×scale。
-    - 支持行级混合精度掩码：为 True 的行直接从 FP16 源读取；否则走量化路径。
-    - 其它流程与 FP16 版本一致：log-sum-exp 稳定化，P×V 累加。
+    说明：
+    - 在前向内核内按行即时反量化 K/V：BITS=8 直接 int8×scale；BITS=4 拆 nibble 后符号扩展×scale
+    - 支持行级混合精度掩码：为 True 的行直接从 FP16 源读取；否则走量化路径
+    - 其它流程与 FP16 版本一致：log-sum-exp 稳定化，P×V 累加
     """
     pid_q_blk = tl.program_id(0)
     pid_bh = tl.program_id(1)
