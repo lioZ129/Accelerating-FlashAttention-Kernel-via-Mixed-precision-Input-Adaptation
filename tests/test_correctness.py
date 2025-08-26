@@ -11,21 +11,21 @@ from typing import Tuple
 import argparse
 import torch
 
-from quant_flash_attn.utils.quantize import (
+from utils.quantize import (
     quantize_kv_cache_fp16_to_int8,
     quantize_kv_cache_fp16_to_packed_int4,
     make_mixed_precision_kv_mask,
 )
-from quant_flash_attn.kernels.quant_dequant_int8 import (
+from kernels.quant_dequant_int8 import (
     dequantize_kv_cache_from_int8,
 )
-from quant_flash_attn.kernels.quant_dequant_int4 import (
+from kernels.quant_dequant_int4 import (
     dequantize_kv_cache_from_packed_int4,
 )
-from quant_flash_attn.ops.control_group import (
+from ops.control_group import (
     flash_attention_forward_with_pre_dequantization,
 )
-from quant_flash_attn.kernels.flash_attn_quant_onthefly import (
+from kernels.flash_attn_quant_onthefly import (
     flash_attention_forward_with_on_the_fly_dequantization,
 )
 

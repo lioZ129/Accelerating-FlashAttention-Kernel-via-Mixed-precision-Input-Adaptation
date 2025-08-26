@@ -17,18 +17,19 @@ import time
 import os
 import csv
 from statistics import median
+from pathlib import Path
 
 import torch
 
-from quant_flash_attn.utils.quantize import (
+from utils.quantize import (
     quantize_kv_cache_fp16_to_int8,
     quantize_kv_cache_fp16_to_packed_int4,
     make_mixed_precision_kv_mask,
 )
-from quant_flash_attn.ops.control_group import (
+from ops.control_group import (
     flash_attention_forward_with_pre_dequantization,
 )
-from quant_flash_attn.kernels.flash_attn_quant_onthefly import (
+from kernels.flash_attn_quant_onthefly import (
     flash_attention_forward_with_on_the_fly_dequantization,
 )
 
@@ -115,6 +116,8 @@ def benchmark_control_vs_experimental_memory_and_latency(args):
     # 导出 CSV（可注释掉）
     csv_path = getattr(args, "csv_path", None)
     if csv_path:
+        csv_path = os.path.abspath(csv_path)
+        os.makedirs(os.path.dirname(csv_path), exist_ok=True)
         # 以追加方式写入，便于多次跑不同参数累积在同一个文件中
         header = ["bits", "batch_size", "num_heads", "seq_len", "head_dim",
                   "fp16_ratio", "causal", "iters", "warmup",
@@ -145,9 +148,12 @@ def main_run_benchmarks():
     parser.add_argument("--fp16-ratio", type=float, default=0.0)
     parser.add_argument("--iters", type=int, default=50)
     parser.add_argument("--warmup", type=int, default=10)
-    # CSV路径默认写入 tests/results.csv
-    parser.add_argument("--csv-path", type=str, default="quant_flash_attn/tests/results.csv")
+    parser.add_argument("--csv-path", type=str, default=None)
     args = parser.parse_args()
+
+    if args.csv_path is None:
+        # 默认结果文件：tests/results.csv
+        args.csv_path = str(Path(__file__).resolve().parent / "results.csv")
 
     benchmark_control_vs_experimental_memory_and_latency(args)
 

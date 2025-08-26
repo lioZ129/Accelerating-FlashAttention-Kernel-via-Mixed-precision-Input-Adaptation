@@ -14,13 +14,13 @@ from typing import Optional
 
 import torch
 
-from quant_flash_attn.kernels.flash_attn_fp16_fwd import (
+from kernels.flash_attn_fp16_fwd import (
     flash_attention_fp16_forward,
 )
-from quant_flash_attn.kernels.quant_dequant_int8 import (
+from kernels.quant_dequant_int8 import (
     dequantize_kv_cache_from_int8,
 )
-from quant_flash_attn.kernels.quant_dequant_int4 import (
+from kernels.quant_dequant_int4 import (
     dequantize_kv_cache_from_packed_int4,
 )
 
