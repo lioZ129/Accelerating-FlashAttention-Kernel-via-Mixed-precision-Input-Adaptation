@@ -2,8 +2,8 @@
 正确性测试（参考实现对比 + 两组互相对比）
 
 说明：
-- 参考实现采用 PyTorch：先得到“反量化后的 FP16” K/V，再计算 softmax(QK^T)*V。
-- 对照组：先反量化再调用 FP16 FA；实验组：on-the-fly 内核内即时反量化。
+- 参考实现采用 PyTorch：先得到“反量化后的 FP16” K/V，再计算 softmax(QK^T)*V
+- 对照组：先反量化再调用 FP16 FA；实验组：on-the-fly 内核内即时反量化
 """
 
 from typing import Tuple

@@ -1,5 +1,5 @@
 """
-on-the-fly 反量化算子实现
+实验组：on-the-fly 反量化算子实现
 
 要点：
 - `@triton.jit` 实现 `_flash_attention_quantized_forward_inner_with_on_the_fly_dequantization`：
@@ -22,10 +22,7 @@ import triton.language as tl
 
 @triton.autotune(
     configs=[
-        triton.Config({"BLOCK_SIZE_Q": 64, "BLOCK_SIZE_KV": 32}, num_warps=4, num_stages=3),
-        triton.Config({"BLOCK_SIZE_Q": 64, "BLOCK_SIZE_KV": 64}, num_warps=4, num_stages=3),
-        triton.Config({"BLOCK_SIZE_Q": 128, "BLOCK_SIZE_KV": 32}, num_warps=4, num_stages=3),
-        triton.Config({"BLOCK_SIZE_Q": 128, "BLOCK_SIZE_KV": 64}, num_warps=4, num_stages=3),
+        triton.Config({"BLOCK_SIZE_Q": 256, "BLOCK_SIZE_KV": 64}, num_warps=8, num_stages=3),
     ],
     key=["SEQ_LEN", "HEAD_DIM"],
 )
@@ -108,16 +105,24 @@ def _flash_attention_quantized_forward_with_on_the_fly_dequantization(
         # 对每一列 d，我们需要对 BLOCK_KV 行做选择（FP16 or 量化）并取值
         # 先尝试量化路径读取
         if BITS == 8:
-            # K: int8 -> fp32 * scale
+            # K: int8 -> fp32 * scale（跳过 FP16 行）
             kT_ptrs = K_q_or_packed + k_base + offs_d[:, None] * stride_K_d_or_packed + curr_kv[None, :] * stride_K_s
-            k_val_q = tl.load(kT_ptrs, mask=(offs_d[:, None] < HEAD_DIM) & (curr_kv[None, :] < SEQ_LEN), other=0).to(tl.int8)
+            k_val_q = tl.load(
+                kT_ptrs,
+                mask=(offs_d[:, None] < HEAD_DIM) & (curr_kv[None, :] < SEQ_LEN) & (~use_fp16_row[None, :]),
+                other=0,
+            ).to(tl.int8)
             K_T_block = (k_val_q.to(tl.float32) * sk_val[None, :]).to(tl.float16)
         else:
             # BITS == 4, packed uint8，选择低/高 nibble
             pack_col = offs_d // 2
             is_low = (offs_d % 2) == 0
             k_pack_ptrs = K_q_or_packed + k_base + pack_col[:, None] * stride_K_d_or_packed + curr_kv[None, :] * stride_K_s
-            packed_u8 = tl.load(k_pack_ptrs, mask=(pack_col[:, None] < (HEAD_DIM // 2)) & (curr_kv[None, :] < SEQ_LEN), other=0).to(tl.uint8)
+            packed_u8 = tl.load(
+                k_pack_ptrs,
+                mask=(pack_col[:, None] < (HEAD_DIM // 2)) & (curr_kv[None, :] < SEQ_LEN) & (~use_fp16_row[None, :]),
+                other=0,
+            ).to(tl.uint8)
             low_n = packed_u8 & 0xF
             high_n = (packed_u8 >> 4) & 0xF
             n = tl.where(is_low[:, None], low_n, high_n).to(tl.int16)
@@ -150,13 +155,21 @@ def _flash_attention_quantized_forward_with_on_the_fly_dequantization(
         # V 路径与 K 对称
         if BITS == 8:
             v_ptrs = V_q_or_packed + v_base + curr_kv[:, None] * stride_V_s + offs_d[None, :] * stride_V_d_or_packed
-            v_q = tl.load(v_ptrs, mask=(curr_kv[:, None] < SEQ_LEN) & (offs_d[None, :] < HEAD_DIM), other=0).to(tl.int8)
+            v_q = tl.load(
+                v_ptrs,
+                mask=(curr_kv[:, None] < SEQ_LEN) & (offs_d[None, :] < HEAD_DIM) & (~use_fp16_row[:, None]),
+                other=0,
+            ).to(tl.int8)
             V_block = (v_q.to(tl.float32) * sv_val[:, None]).to(tl.float16)
         else:
             v_pack_col = offs_d // 2
             v_is_low = (offs_d % 2) == 0
             v_pack_ptrs = V_q_or_packed + v_base + curr_kv[:, None] * stride_V_s + v_pack_col[None, :] * stride_V_d_or_packed
-            v_packed_u8 = tl.load(v_pack_ptrs, mask=(curr_kv[:, None] < SEQ_LEN) & (v_pack_col[None, :] < (HEAD_DIM // 2)), other=0).to(tl.uint8)
+            v_packed_u8 = tl.load(
+                v_pack_ptrs,
+                mask=(curr_kv[:, None] < SEQ_LEN) & (v_pack_col[None, :] < (HEAD_DIM // 2)) & (~use_fp16_row[:, None]),
+                other=0,
+            ).to(tl.uint8)
             v_low_n = v_packed_u8 & 0xF
             v_high_n = (v_packed_u8 >> 4) & 0xF
             v_n = tl.where(v_is_low[None, :], v_low_n, v_high_n).to(tl.int16)

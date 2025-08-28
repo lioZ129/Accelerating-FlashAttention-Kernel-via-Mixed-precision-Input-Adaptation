@@ -8,8 +8,8 @@
   - `m_i`、`l_i` 使用 fp32 运行状态；
   - `P_block` 用 fp16 与 V 相乘，累加用 fp32；
   - causal 与 non-causal 通过 `STAGE`/掩码控制
-- 提供 `FlashAttentionFP16ForwardFunction`（仅 forward），以及 `flash_attention_fp16_forward` 便捷封装
-- 导出函数参数与 stride 按报告定义；`softmax_scale` 默认 `1/sqrt(D)`
+- 提供 `FlashAttentionFP16ForwardFunction`，以及 `flash_attention_fp16_forward` 便捷封装
+- `softmax_scale` 默认 `1/sqrt(D)`
 
 """
 
@@ -22,10 +22,7 @@ import triton.language as tl
 
 @triton.autotune(
     configs=[
-        triton.Config({"BLOCK_SIZE_Q": 64, "BLOCK_SIZE_KV": 32}, num_warps=4, num_stages=3),
-        triton.Config({"BLOCK_SIZE_Q": 64, "BLOCK_SIZE_KV": 64}, num_warps=4, num_stages=3),
-        triton.Config({"BLOCK_SIZE_Q": 128, "BLOCK_SIZE_KV": 32}, num_warps=4, num_stages=3),
-        triton.Config({"BLOCK_SIZE_Q": 128, "BLOCK_SIZE_KV": 64}, num_warps=4, num_stages=3),
+        triton.Config({"BLOCK_SIZE_Q": 256, "BLOCK_SIZE_KV": 64}, num_warps=8, num_stages=3),
     ],
     key=["SEQ_LEN", "HEAD_DIM"],
 )

@@ -8,10 +8,10 @@
 - 默认参数：`B=2, H=16, S=2048, D=64, bits=8, causal=True, fp16_ratio=0.0`（8GB 友好）
 - 即 
   ```
-  python3 -m quant_flash_attn.tests.bench --bits 4 --batch-size 2 --num-heads 16 --seq-len 2048 --head-dim 64 --fp16-ratio 0.0 --iters 20 --warmup 5 --causal
+  python3 tests/bench.py --bits 4 --batch-size 2 --num-heads 16 --seq-len 4096 --head-dim 64 --fp16-ratio 0.5 --iters 10 --warmup 3 --causal
   ```
   ```
-  python3 -m quant_flash_attn.tests.bench --bits 8 --batch-size 2 --num-heads 16 --seq-len 2048 --head-dim 64 --fp16-ratio 0.0 --iters 20 --warmup 5 --causal 
+  python3 tests/bench.py --bits 8 --batch-size 2 --num-heads 16 --seq-len 4096 --head-dim 64 --fp16-ratio 0.5 --iters 10 --warmup 3 --causal
   ```
 
 后续将补充：安装依赖、形状/位宽约束、常见问题（INT4 偶数维、mask 使用）、环境信息打印等
